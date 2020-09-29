@@ -1,4 +1,7 @@
 {
+    "name": "accolon/container",
+    "description": "Container",
+    "license": "MIT",
     "require": {
         "psr/container": "^1.0"
     },
