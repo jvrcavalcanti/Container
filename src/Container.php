@@ -31,7 +31,7 @@ class Container implements ContainerInterface
             return $this->resolve($id);
         }
 
-        $value = $this->binds[$id];
+        $value = $this->get($id);
 
         if (is_string($value)) {
             return $this->resolve($value);
@@ -49,10 +49,7 @@ class Container implements ContainerInterface
 
     public function get($id)
     {
-        if (!$this->has($id)) {
-            throw new \Exception("Id not found => [$id]");
-        }
-        return $this->binds[$id];
+        return $this->binds[$id] ?? $id;
     }
 
     public function resolve(string $class)
