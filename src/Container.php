@@ -3,8 +3,6 @@
 namespace Accolon\Container;
 
 use Psr\Container\ContainerInterface;
-use ReflectionClass;
-use ReflectionMethod;
 
 class Container implements ContainerInterface
 {
@@ -21,7 +19,7 @@ class Container implements ContainerInterface
         $this->singletons[$id] = $value;
     }
 
-    public function make(string $id)
+    public function get(string $id)
     {
         if (isset($this->singletons[$id])) {
             return $this->singletons[$id];
@@ -31,7 +29,7 @@ class Container implements ContainerInterface
             return $this->resolve($id);
         }
 
-        $value = $this->get($id);
+        $value = $this->binds[$id];
 
         if (is_string($value)) {
             return $this->resolve($value);
@@ -40,6 +38,13 @@ class Container implements ContainerInterface
         if (is_callable($value)) {
             return call_user_func($value, $this);
         }
+
+        throw new \Exception('Id invalid!');
+    }
+
+    public function make(string $id)
+    {
+        return $this->get($id);
     }
 
     public function has($id)
@@ -47,21 +52,16 @@ class Container implements ContainerInterface
         return isset($this->binds[$id]);
     }
 
-    public function get($id)
-    {
-        return $this->binds[$id] ?? $id;
-    }
-
     public function resolve(string $class)
     {
-        $reflector = new ReflectionClass($class);
+        $reflector = new \ReflectionClass($class);
 
         if ($reflector->isInterface()) {
             throw new \ReflectionException("Interface can't instance");
         }
 
         $constructor = $reflector->getConstructor() ?? fn() => null;
-        $params = ($constructor instanceof ReflectionMethod) ? $constructor->getParameters() : null;
+        $params = ($constructor instanceof \ReflectionMethod) ? $constructor->getParameters() : null;
 
         if (is_null($params)) {
             return $reflector->newInstance();
