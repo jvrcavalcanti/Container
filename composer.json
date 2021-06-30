@@ -9,5 +9,8 @@
         "psr-4": {
             "Accolon\\Container\\": "src/"
         }
+    },
+    "require-dev": {
+        "pestphp/pest": "^1.8"
     }
 }

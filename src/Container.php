@@ -2,11 +2,14 @@
 
 namespace Accolon\Container;
 
+use Accolon\Container\Exceptions\CircularDepdencyException;
+use Accolon\Container\Exceptions\NotFoundException;
 use Psr\Container\ContainerInterface;
 
 class Container implements ContainerInterface
 {
     private array $binds = [];
+    private string $currentClass = '';
     private array $singletons = [];
 
     public function bind(string $id, $value)
@@ -39,11 +42,12 @@ class Container implements ContainerInterface
             return call_user_func($value, $this);
         }
 
-        throw new \Exception('Id invalid!');
+        throw new NotFoundException('Id invalid!');
     }
 
     public function make(string $id)
     {
+        $this->currentClass = $id;
         return $this->get($id);
     }
 
@@ -61,9 +65,9 @@ class Container implements ContainerInterface
         }
 
         $constructor = $reflector->getConstructor() ?? fn() => null;
-        $params = ($constructor instanceof \ReflectionMethod) ? $constructor->getParameters() : null;
+        $params = ($constructor instanceof \ReflectionMethod) ? $constructor->getParameters() : [];
 
-        if (is_null($params)) {
+        if (empty($params)) {
             return $reflector->newInstance();
         }
 
@@ -76,8 +80,12 @@ class Container implements ContainerInterface
 
             $name = (string) $param->getType();
 
+            if ($name === $this->currentClass) {
+                throw new CircularDepdencyException("Circular dependency of [{$this->currentClass}] in [{$class}]");
+            }
+
             if ($param->hasType() && (class_exists($name) || interface_exists($name))) {
-                $newParams[] = $this->make($name);
+                $newParams[] = $this->get($name);
                 continue;
             }
         }
