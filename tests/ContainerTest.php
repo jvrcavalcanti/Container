@@ -8,14 +8,22 @@ use Psr\Container\ContainerInterface;
 it('should return myself', function () {
     $container = new Container;
 
-    expect($container->make(\stdClass::class))->toBeInstanceOf(\stdClass::class);
+    expect($container->get(\stdClass::class))->toBeInstanceOf(\stdClass::class);
+});
+
+it('should return myself, but using helper 1', function () {
+    expect(container()->get(\stdClass::class))->toBeInstanceOf(\stdClass::class);
+});
+
+it('should return myself, but using helper 2', function () {
+    expect(resolve(\stdClass::class))->toBeInstanceOf(\stdClass::class);
 });
 
 it('should return concrete class', function () {
     $container = new Container;
     $container->bind(ContainerInterface::class, Container::class);
 
-    expect($container->make(ContainerInterface::class))->toBeInstanceOf(Container::class);
+    expect($container->get(ContainerInterface::class))->toBeInstanceOf(Container::class);
 });
 
 it('should generate circular dependency exception', function () {
@@ -37,5 +45,15 @@ it('should generate circular dependency exception', function () {
         }
     }
 
-    $container->make(A::class);
+    $container->get(A::class);
 })->throws(CircularDepdencyException::class);
+
+it('should return the return function', function () {
+    $container = new Container;
+
+    expect($container->make(function (\stdClass $obj) {
+        $obj->message = 'oi';
+        return $obj;
+    }))
+        ->message->toBe('oi');
+});

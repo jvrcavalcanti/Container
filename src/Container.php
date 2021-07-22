@@ -24,18 +24,32 @@ class Container implements ContainerInterface
 
     public function get(string $id)
     {
-        if (isset($this->singletons[$id])) {
+        $this->currentClass = $id;
+        return $this->make($id);
+    }
+
+    public function make(array|string|\Closure $id)
+    {
+        if (is_string($id) && isset($this->singletons[$id])) {
             return $this->singletons[$id];
         }
 
+        if (is_string($id) && !$this->has($id) && class_or_interface_exists($id)) {
+            return $this->resolveObject($id);
+        }
+
+        if (is_array($id) || is_callable($id)) {
+            return $this->resolveCallable($id);
+        }
+
         if (!$this->has($id)) {
-            return $this->resolve($id);
+            return $this->resolveCallable($id);
         }
 
         $value = $this->binds[$id];
 
         if (is_string($value)) {
-            return $this->resolve($value);
+            return $this->resolveObject($value);
         }
 
         if (is_callable($value)) {
@@ -45,18 +59,50 @@ class Container implements ContainerInterface
         throw new NotFoundException('Id invalid!');
     }
 
-    public function make(string $id)
-    {
-        $this->currentClass = $id;
-        return $this->get($id);
-    }
-
-    public function has($id)
+    public function has(string $id)
     {
         return isset($this->binds[$id]);
     }
 
-    public function resolve(string $class)
+    public function resolveParameters(array $params): array
+    {
+        $newParams = [];
+
+        /** @var \ReflectionParameter $param */
+        foreach ($params as $param) {
+            if ($param->isOptional()) {
+                continue;
+            }
+
+            $name = (string) $param->getType();
+
+            if ($name === $this->currentClass) {
+                throw new CircularDepdencyException("Circular dependency of [{$this->currentClass}]");
+            }
+
+            if ($param->hasType() && class_or_interface_exists($name)) {
+                $newParams[] = $this->make($name);
+                continue;
+            }
+        }
+
+        return $newParams;
+    }
+
+    public function resolveCallable(array|string|\Closure $action): mixed
+    {
+        if (is_array($action)) {
+            $reflection = new \ReflectionFunction(\Closure::fromCallable([$action[0], $action[1]]));
+        }
+
+        $reflection = new \ReflectionFunction($action);
+
+        $params = $this->resolveParameters($reflection->getParameters());
+
+        return $reflection->invoke(...$params);
+    }
+
+    public function resolveObject(string $class): object
     {
         $reflector = new \ReflectionClass($class);
 
@@ -71,24 +117,7 @@ class Container implements ContainerInterface
             return $reflector->newInstance();
         }
 
-        $newParams = [];
-
-        foreach ($params as $param) {
-            if ($param->isOptional()) {
-                continue;
-            }
-
-            $name = (string) $param->getType();
-
-            if ($name === $this->currentClass) {
-                throw new CircularDepdencyException("Circular dependency of [{$this->currentClass}] in [{$class}]");
-            }
-
-            if ($param->hasType() && (class_exists($name) || interface_exists($name))) {
-                $newParams[] = $this->get($name);
-                continue;
-            }
-        }
+        $newParams = $this->resolveParameters($params);
 
         return $reflector->newInstance(...$newParams);
     }
